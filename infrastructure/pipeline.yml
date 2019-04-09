@@ -1,0 +1,293 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CD pipeline # add more docs?
+
+Parameters:
+  Service:
+    Description: Name of the service, propagated all over the place. Choose wisely.
+    Type: String
+    AllowedPattern: '^[a-z]+(-[a-z]+)*$'
+    ConstraintDescription: must contain only lowercase letters and hyphens
+
+  # GitHubRepo:
+  #   Type: String
+  #   Default: aws-cd-pipeline
+  #   AllowedPattern: '[A-Za-z0-9-]+'
+
+  # GitHubRepoOwner:
+  #   Type: String
+  #   Default: milancermak
+  #   AllowedPattern: '[A-Za-z0-9-]+'
+
+  # GitHubRepoBranch:
+  #   Type: String
+  #   Default: master
+  #   AllowedPattern: '[A-Za-z0-9-]+'
+
+  # # instead of passing the OAuth token as a parameter,
+  # # you can use AWS Secrets Manager
+  # GitHubOAuthToken:
+  #   Type: String
+  #   NoEcho: true
+  #   MinLength: 40
+  #   MaxLength: 40
+  #   AllowedPattern: '[a-z0-9]*'
+
+Resources:
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+      BucketName: !Sub '${Service}-${AWS::Region}-artifacts'
+
+  CodeRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Ref Service
+
+  # use a GitHub webhook when pulling from GH
+  # GitHubWebhook:
+  #   Type: AWS::CodePipeline::Webhook
+  #   Properties:
+  #     Authentication: GITHUB_HMAC
+  #     AuthenticationConfiguration:
+  #       SecretToken: !Ref GitHubOAuthToken
+  #     Filters:
+  #       - JsonPath: '$.ref'
+  #         MatchEquals: 'refs/heads/{Branch}'
+  #     RegisterWithThirdParty: true
+  #     TargetPipeline: !Ref CodePipeline
+  #     TargetAction: GitHub
+  #     TargetPipelineVersion: !GetAtt CodePipeline.Version
+
+  CloudformationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+      Policies:
+        - PolicyName: CodeBuildServicePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchWriteLogsPolicy
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              - Sid: CodeCommitPullPolicy
+                Effect: Allow
+                Action:
+                  - codecommit:GitPull
+                Resource: !GetAtt CodeRepository.Arn
+              - Sid: ArtifactsBucketCodeBuildPolicy
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource: !Sub '${ArtifactsBucket.Arn}/*'
+              - Sid: SamTranslateDependencyPolicy
+                Effect: Allow
+                Action:
+                  - iam:ListPolicies
+                Resource: '*'
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Cache:
+        Location: !Sub '${ArtifactsBucket}/buildcache/functions'
+        Type: S3
+      Description: !Sub '${Service} functions build'
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        EnvironmentVariables:
+          - Name: ARTIFACTS_BUCKET
+            Value: !Ref ArtifactsBucket
+            Type: PLAINTEXT
+        Image: aws/codebuild/python:3.7.1
+        Type: LINUX_CONTAINER
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        BuildSpec: infrastructure/buildspec.yml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 15
+
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Location: !Ref ArtifactsBucket
+        Type: S3
+      Name: !Sub '${Service}-pipeline'
+      RestartExecutionOnUpdate: true
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      Stages:
+        - Name: FetchSource
+          Actions:
+            - Name: CodeCommit
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: '1'
+              Configuration:
+                RepositoryName: !GetAtt CodeRepository.Name
+                BranchName: master
+              OutputArtifacts:
+                - Name: SourceOutput
+
+        # when pulling from a GitHub repository:
+        # - Name: FetchSource
+        #   Actions:
+        #     - Name: GitHub
+        #       ActionTypeId:
+        #         Category: Source
+        #         Owner: ThirdParty
+        #         Provider: GitHub
+        #         Version: '1'
+        #       Configuration:
+        #         Repo: !Ref GitHubRepo
+        #         Owner: !Ref GitHubRepoOwner
+        #         Branch: !Ref GitHubRepoBranch
+        #         OAuthToken: !Ref GitHubOAuthToken
+        #         PollForSourceChanges: false
+        #       OutputArtifacts:
+        #         - Name: SourceOutput
+
+        - Name: UpdatePipeline
+          Actions:
+            - Name: PipelineStack
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM
+                RoleArn: !GetAtt CloudformationRole.Arn
+                StackName: !Ref AWS::StackName
+                TemplatePath: SourceOutput::infrastructure/pipeline.yml
+                # if using GitHub, add all parameters here
+                ParameterOverrides: !Sub '{"Service": "${Service}"}'
+              InputArtifacts:
+                - Name: SourceOutput
+
+        - Name: Build
+          Actions:
+            - Name: Functions
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+
+        - Name: Deploy
+          Actions:
+            - Name: Beta
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
+                RoleArn: !GetAtt CloudformationRole.Arn
+                StackName: !Sub '${Service}-beta-functions'
+                TemplatePath: BuildOutput::packaged_functions.yml
+                ParameterOverrides: !Sub '{"Service": "${Service}", "Stage": "beta"}'
+              InputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+
+            # - Name: QA
+            #   ActionTypeId:
+            #     Category: Approval
+            #     Owner: AWS
+            #     Provider: Manual
+            #     Version: '1'
+            #   RunOrder: 2
+
+            - Name: Prod
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
+                RoleArn: !GetAtt CloudformationRole.Arn
+                StackName: !Sub '${Service}-prod-functions'
+                TemplatePath: BuildOutput::packaged_functions.yml
+                ParameterOverrides: !Sub '{"Service": "${Service}", "Stage": "prod"}'
+              InputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 3
+
+Outputs:
+  CodeRepositoryArn:
+    Description: Code repository ARN
+    Value: !GetAtt CodeRepository.Arn
+
+  CodeRepositoryName:
+    Description: Code repository name
+    Value: !GetAtt CodeRepository.Name
+
+  CodeRepositoryURL:
+    Description: Code repository URL
+    Value: !GetAtt CodeRepository.CloneUrlSsh

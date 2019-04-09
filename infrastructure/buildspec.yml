@@ -1,0 +1,32 @@
+---
+version: 0.2
+
+env:
+  variables:
+    # ARTIFACTS_BUCKET is also available, coming from pipeline.yml
+    PIP_CACHE: pip_cache
+
+phases:
+  install:
+    commands:
+      - printenv
+      - pip install -r requirements-dev.txt --cache-dir "${PIP_CACHE}"
+
+  pre_build:
+    commands:
+      - pytest -vrf tests
+
+  build:
+    commands:
+      - aws cloudformation package
+        --template-file infrastructure/functions.yml
+        --output-template-file packaged_functions.yml
+        --s3-bucket "${ARTIFACTS_BUCKET}"
+
+artifacts:
+  files:
+    - packaged_functions.yml
+
+cache:
+  paths:
+    - 'pip_cache/**/*'
