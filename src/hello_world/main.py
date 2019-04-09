@@ -7,6 +7,6 @@ def handler(event, context):
     # if os.environ.get('STAGE') == 'prod':
     #     raise ValueError('Nope')
 
-    print('Hello world')
+    print('Hello Berlin')
 
     return True
