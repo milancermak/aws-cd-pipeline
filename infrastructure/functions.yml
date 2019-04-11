@@ -36,7 +36,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: '../src/hello_world'
-      AutoPublishAlias: !Ref Stage # cfn-lint fails here
+      # cfn-lint fails here, see
+      # https://github.com/aws-cloudformation/cfn-python-lint/issues/582
+      AutoPublishAlias: !Ref Stage
       DeploymentPreference:
         Type: !If [IsBeta, AllAtOnce, Canary10Percent5Minutes]
         Alarms:

@@ -1,6 +1,13 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CD pipeline # add more docs?
+Description: >-
+  An example of a 5-stage contiuous deployment pipeline. It fetches
+  code from a CodeCommit repository (1), updates itself (2), prepares
+  the deployment package in CodeBuild (3), deploys it to a beta
+  stack (4) and finally deploys a production stack (5).
+  The pipeline can works with a GitHub repo as well - just uncomment
+  the respective parts in this file and add the new parameters to
+  the ParameterOverrides directives.
 
 Parameters:
   Service:

@@ -108,7 +108,5 @@ venv.bak/
 # project specific
 core
 log
-TODO
-queries
-lambdacore
 tmp/
+slides/
