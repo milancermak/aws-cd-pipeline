@@ -59,12 +59,12 @@ Here's an assorted and opinionated list of things to consider when creating a CD
 ### Documentation links
 The official documentation is pretty great, but hard to navigate. Here's a list of starting points that will hopefully help you to find what you're looking for.
 
-[CodePipeline Action structure](https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements)
-[CodePipeline Stage Action property in CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stages-actions.html)
-[CodePipeline data types](https://docs.aws.amazon.com/codepipeline/latest/APIReference/API_Types.html)
-[Using Fn::GetArtifactAtt & Fn::GetParam with ParameterOverrides](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-parameter-override-functions.html)
-[CloudFormation configuration properties](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-action-reference.html#w2ab1c13c13b9)
-[CloudFormation artifacts](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-cfn-artifacts.html)
+* [CodePipeline Action structure](https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements)
+* [CodePipeline Stage Action property in CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-stages-actions.html)
+* [CodePipeline data types](https://docs.aws.amazon.com/codepipeline/latest/APIReference/API_Types.html)
+* [Using Fn::GetArtifactAtt & Fn::GetParam with ParameterOverrides](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-parameter-override-functions.html)
+* [CloudFormation configuration properties](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-action-reference.html#w2ab1c13c13b9)
+* [CloudFormation artifacts](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-cfn-artifacts.html)
 
 ### Other helpful presentations
 * [Sarah Wells from Financial Times, QCon London 2019](https://speakerdeck.com/sarahjwells/qcon-london-2019-mature-microservices-and-how-to-operate-them) - especially the first third on why you really want to have a CD pipeline
