@@ -31,6 +31,8 @@ git remote add aws ssh://git-codecommit.eu-central-1.amazonaws.com/v1/repos/cd-d
 ```
 And finally push to that repository `git push aws master`. That should trigger the first run of the pipeline.
 
+If you want to know a little more about what's going on, check out [this older, but similar](https://github.com/milancermak/lambda-pipeline) repo I have.
+
 ### Tips, tricks, opinions, dos and donts
 Here's an assorted and opinionated list of things to consider when creating a CD pipeline. Some you can apply right away, some are more advanced which you can build in later iterations.
 
